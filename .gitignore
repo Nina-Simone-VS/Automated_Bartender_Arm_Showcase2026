@@ -1,0 +1,9 @@
+# Python virtual environments & bytecode
+venv/
+__pycache__/
+*.pyc
+
+# System & temporary editor files
+.DS_Store
+Thumbs.db
+*.swp
