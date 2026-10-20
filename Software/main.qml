@@ -187,7 +187,7 @@ ApplicationWindow {
                                 selectedSide = 0
 
                                 isBusy=true
-                                backend.startPour()
+                                backend.startPour((currentItem+1) %fullMenu.length)
                             }
                         }
                     }//end order btn 
@@ -355,7 +355,7 @@ ApplicationWindow {
                                 selectedSide = 0
 
                                 isBusy=true
-                                backend.startPour()
+                                backend.startPour(currentItem)
                             }
                         }
                     } //end order btn

@@ -1,7 +1,50 @@
 import sys
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import QObject, Signal, Slot , QTimer
+from PySide6.QtCore import QObject, Signal, Slot , QThread
+
+#import hardware code
+import Bartender_arm_movement_code
+
+#DELETE THIS ↓
+import time
+# ↑
+class BartWorker(QThread):
+    sequenceDone = Signal()
+
+    def __init__(self, drinkName):
+        super().__init__()
+        self.drinkName = drinkName
+    #end constructor
+
+    def run(self):
+        print(f"HARDWARE THREAD: activate Bart for {self.drinkName}")
+
+        try:
+            roboArm = Bartender_arm_movement_code.Arm()
+            roboArm.connect()
+
+            #connect arm to bartender logic class
+            bart = Bartender_arm_movement_code.Bartender(roboArm)
+
+            #perform drink seq
+            bart.make_drink(self.drinkName)
+
+            #drink done
+            roboArm.close()
+            print("HARDWARE THREAD: Drink completed")
+        except Exception as e:
+            print(f"HARDWARE THREAD error: {e}")
+
+            #fake an order for me DELETE THIS
+            #print(f"\nSimulate 5sec delay for testing UI")
+            #time.sleep(5)
+        finally:
+            #unlock QML screen
+            self.sequenceDone.emit() 
+        #end try drink seq
+    #end run pour sequence fn  
+#worker thread for arm movement
 
 class Backend(QObject):
     updatedDrinks = Signal(list, list, arguments = ['drinkList', 'orderList'])
@@ -9,6 +52,16 @@ class Backend(QObject):
 
     def __init__(self):
         super().__init__()
+        self.worker = None
+
+        #recipe names
+        self.recipeNames = [
+            "Blueberry_Bliss",
+            "Cranberry_Crush",
+            "Pomegranate_Punch",
+            "Passion_fruit_Paradise",
+            "Watermelon_Wonder"
+        ]
     #end constructor fn
 
     def loadDrinks(self):
@@ -17,16 +70,23 @@ class Backend(QObject):
         self.updatedDrinks.emit(drinkMenu, orderMenu)
     #end load python list of drink menu fn
 
-    @Slot() #QML can call
-    def startPour(self):
-        print("Hardware: Motors moving...")
-        #wait 5sec for movement
-        QTimer.singleShot(5000, self.armReady)
+    @Slot(int) #QML can call & give int
+    def startPour(self, drinkIndex):
+        drinkName = self.recipeNames[drinkIndex]
+
+        print("BACKEND: Asynchronous execution of bg thread for motors...")
+
+        #thread setup for GUI and motors
+        self.worker = BartWorker(drinkIndex)
+        self.worker.sequenceDone.connect(self.finishPour)
+
+        #MOTORS STARTING
+        self.worker.start()
     #end start pour fn
 
     def finishPour(self):
         #unlock gui
-        print("Hardware: Motors stationary")
+        print("BACKEND: Motors stationary, give GUI unlock signal")
         self.armReady.emit()
     #end finish pour fn
 #end backend class
