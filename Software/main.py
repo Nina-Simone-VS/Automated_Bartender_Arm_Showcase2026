@@ -12,9 +12,10 @@ import time
 class BartWorker(QThread):
     sequenceDone = Signal()
 
-    def __init__(self, drinkName):
+    def __init__(self, drinkName, withMixer):
         super().__init__()
         self.drinkName = drinkName
+        self.withMixer = withMixer
     #end constructor
 
     def run(self):
@@ -37,8 +38,8 @@ class BartWorker(QThread):
             print(f"HARDWARE THREAD error: {e}")
 
             #fake an order for me DELETE THIS
-            #print(f"\nSimulate 5sec delay for testing UI")
-            #time.sleep(5)
+            print(f"\nSimulate 5sec delay for testing UI")
+            time.sleep(5)
         finally:
             #unlock QML screen
             self.sequenceDone.emit() 
@@ -70,14 +71,15 @@ class Backend(QObject):
         self.updatedDrinks.emit(drinkMenu, orderMenu)
     #end load python list of drink menu fn
 
-    @Slot(int) #QML can call & give int
-    def startPour(self, drinkIndex):
+    @Slot(int, bool) #QML can call & give int and bool
+    def startPour(self,drinkIndex , isStill):
         drinkName = self.recipeNames[drinkIndex]
+        withMixer = isStill
 
         print("BACKEND: Asynchronous execution of bg thread for motors...")
 
         #thread setup for GUI and motors
-        self.worker = BartWorker(drinkIndex)
+        self.worker = BartWorker(drinkName, withMixer)
         self.worker.sequenceDone.connect(self.finishPour)
 
         #MOTORS STARTING
@@ -88,7 +90,7 @@ class Backend(QObject):
         #unlock gui
         print("BACKEND: Motors stationary, give GUI unlock signal")
         self.armReady.emit()
-    #end finish pour fn
+    #end finish pour fn  
 #end backend class
 
 class BartenderMenuApp:

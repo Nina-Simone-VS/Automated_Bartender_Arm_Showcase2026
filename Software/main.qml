@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
+import QtMultimedia
 
 ApplicationWindow {
     id: appWin 
@@ -17,11 +18,14 @@ ApplicationWindow {
     property var fullMenu:[]
     property var orderMenu: []
     property int currentItem: 0
+    
 
     //order selection
     property bool isOrdering: false
     property int selectedSide: 0 //1 = left img & 2 = right img or drink clicked
     property bool isBusy: false
+    property bool isStill: false
+    property bool showNextOrder: false
 
     RowLayout {
         anchors.fill: parent
@@ -150,9 +154,9 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     spacing: 20
                     
-                    //ORDER BUTTON for drink B
+                    //STILL ORDER BUTTON for drink B
                     Rectangle {
-                        id: orderBbtn
+                        id: stillOrderBbtn
                         width: 180
                         height: 60
                         radius: 30
@@ -161,7 +165,7 @@ ApplicationWindow {
 
                         Text{
                             anchors.centerIn: parent
-                            text: "ORDER"
+                            text: "STILL"
                             font.pixelSize: 25
                             font.bold : true
                             color: "white"
@@ -172,26 +176,67 @@ ApplicationWindow {
                             anchors.fill: parent
                             color: "black"
                             opacity: 0.4
-                            visible: orderBMouse.pressed
+                            visible: stillOrderBMouse.pressed
                             radius: 30
                             z:4
                         }
 
                         MouseArea{
-                            id: orderBMouse
+                            id: stillOrderBMouse
                             z: 5
                             anchors.fill: parent
                             onClicked: {
                                 console.log("MOTORS MOVING for Drink B")
                                 isOrdering = false
                                 selectedSide = 0
-
+                                isStill = false
                                 isBusy=true
-                                backend.startPour((currentItem+1) %fullMenu.length)
+                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
                             }
                         }
-                    }//end order btn 
+                    }//end order still btn 
                     
+                    //SPARKLING ORDER BUTTON for drink B
+                    Rectangle {
+                        id: sparklingOrderBbtn
+                        width: 180
+                        height: 60
+                        radius: 30
+                        color: "#4CAF50"
+                        z:3
+
+                        Text{
+                            anchors.centerIn: parent
+                            text: "SPARKLING"
+                            font.pixelSize: 25
+                            font.bold : true
+                            color: "white"
+                        }
+
+                        //touch visual feedback
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "black"
+                            opacity: 0.4
+                            visible: sparklingOrderBMouse.pressed
+                            radius: 30
+                            z:4
+                        }
+
+                        MouseArea{
+                            id: sparklingOrderBMouse
+                            z: 5
+                            anchors.fill: parent
+                            onClicked: {
+                                console.log("MOTORS MOVING for Drink B")
+                                isOrdering = false
+                                selectedSide = 0
+                                isStill = true
+                                isBusy=true
+                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
+                            }
+                        }
+                    }//end order sparkling btn 
 
                     // RED CANCEL Btn for drink B
                     Rectangle {
@@ -319,17 +364,18 @@ ApplicationWindow {
                     spacing: 20
 
 
-                    //ORDER BUTTON for drink A
+                    //STILL ORDER BUTTON for drink A
                     Rectangle {
+                        id: stillOrderAbtn
                         width: 180
                         height: 60
                         radius: 30
                         color: "#4CAF50"
-
+                        z:3
 
                         Text{
                             anchors.centerIn: parent
-                            text: "ORDER"
+                            text: "STILL"
                             font.pixelSize: 25
                             font.bold : true
                             color: "white"
@@ -340,25 +386,67 @@ ApplicationWindow {
                             anchors.fill: parent
                             color: "black"
                             opacity: 0.4
-                            visible: orderBMouse.pressed
+                            visible: stillOrderAMouse.pressed
                             radius: 30
-                            z:3
+                            z:4
                         }
 
                         MouseArea{
-                            id: orderAMouse
-                            z: 4
+                            id: stillOrderAMouse
+                            z: 5
                             anchors.fill: parent
                             onClicked: {
-                                console.log("MOTORS MOVING for Drink A")
+                                console.log("MOTORS MOVING for Drink A (Still)")
                                 isOrdering = false
                                 selectedSide = 0
-
+                                isStill = false
                                 isBusy=true
-                                backend.startPour(currentItem)
+                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
                             }
                         }
-                    } //end order btn
+                    }//end order still btn 
+                    
+                    //SPARKLING ORDER BUTTON for drink A
+                    Rectangle {
+                        id: sparklingOrderAbtn
+                        width: 180
+                        height: 60
+                        radius: 30
+                        color: "#4CAF50"
+                        z:3
+
+                        Text{
+                            anchors.centerIn: parent
+                            text: "SPARKLING"
+                            font.pixelSize: 25
+                            font.bold : true
+                            color: "white"
+                        }
+
+                        //touch visual feedback
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "black"
+                            opacity: 0.4
+                            visible: sparklingOrderAMouse.pressed
+                            radius: 30
+                            z:4
+                        }
+
+                        MouseArea{
+                            id: sparklingOrderAMouse
+                            z: 5
+                            anchors.fill: parent
+                            onClicked: {
+                                console.log("MOTORS MOVING for Drink A (Sparkling)")
+                                isOrdering = false
+                                selectedSide = 0
+                                isStill = true
+                                isBusy=true
+                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
+                            }
+                        }
+                    }//end order sparkling btn for drink A
 
                     // RED CANCEL Btn for drink A
                     Rectangle {
@@ -440,24 +528,55 @@ ApplicationWindow {
 
     }
 
-    //WHILE ORDERING
+    //WHILE ORDERING: POURING SCREEN VIDEO
     Rectangle{
+        id: pouringScreen
         anchors.fill: parent
         color: "#CC000000"
         visible: isBusy
-        z: 99
+        z: 90
+
+        MediaPlayer {
+            id: pouringPlayer
+            source: "./Images/LoadingVidG.mp4"
+            loops: MediaPlayer.Infinite
+            videoOutput: pouringVideo
+        }
+
+        VideoOutput{ 
+            id: pouringVideo
+            anchors.fill: parent
+            fillMode: VideoOutput.PreserveAspectCrop
+        }
+
+        //Auto play/stop
+        onVisibleChanged: {
+            if (visible){
+                pouringPlayer.play()
+            } else {
+                pouringPlayer.stop()
+            }
+        }
+    }
+
+    //Next Order SCREEN
+    Rectangle{
+        id: completedOrderScreen
+        anchors.fill: parent
+        visible: showNextOrder
+        z: 90
+
+        Image{
+            anchors.fill: parent
+            source: "./Images/NextOrderG.jpeg"
+            fillMode: Image.PreserveAspectCrop
+        }
 
         MouseArea {
             anchors.fill: parent
-        }
-
-        Text{
-            anchors.centerIn: parent
-            text: "Preparing your drink...\n\nPlease keep clear of the arm!"
-            color: "white"
-            font.pixelSize: 50
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
+            onClicked: {
+                showNextOrder = false
+            }
         }
     }
 
@@ -495,9 +614,10 @@ ApplicationWindow {
 
         //waits for arm not busy/stationary/emit
         function onArmReady() {
-            isBusy=false
+            isBusy = false
             isOrdering=false
             selectedSide=0
+            showNextOrder = true
             console.log("QML unlocked for next order")
         }
     }
