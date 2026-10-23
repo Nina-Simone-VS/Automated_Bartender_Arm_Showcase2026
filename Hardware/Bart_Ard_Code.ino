@@ -3,21 +3,27 @@ _________Bartender Robot Arduino Code_________
 
 The current setup has the base motor at X, first joint at Y, second joint at Z and the gripper joint at A
 
-The servo (for the grippers) havent been implimented though they can use digital pins 9,10 and 11. 
-Analog pins are also open for programing.
-
-Gear ratios have been implimented but during testing, error with direcrion calculation were spotted. These havent been corrected yet
+The servo (for the grippers) have been implimented.
+Gear ratios have been implimented
+Direction error was corrected
 
 ___HOW TO USE___
 
 Send joint angles as a string in the serial input/output (TX pin on the raspbarry pi and RT pin on the Arduino).
 Set the baud rate (of the raspbarry pi) to 115200
 Send the signal with an interval between. eg the signal is sent every 30ms. (Sending the signal too fast can cause errors because the arduino buffer isnt too large but the code can be optimised to improve this)
-At the moment the signal is just the angles with spaces in between like "30 75 310 180". This will change with the addition of the servos and possible optimisation.
+At the moment the signal is just the angles with spaces in between like "30 75 310 180 0 0 0". First 4 are the stepper motors last 3 are for the servos
 
 
 */
 
+#include <Servo.h>
+
+Servo e;
+Servo c;
+Servo d;
+
+int serv[4] = {0, 0, 0, 0};
 
 int x = 2;
 int y = 3;
@@ -28,7 +34,7 @@ int ydir = 6;
 int zdir = 7;
 int adir = 13;
 
-float xratio = (130/15);
+float xratio = (130.0/15.0);
 float yratio = 60;
 float zratio = 27.2;
 float aratio = 32;
@@ -51,20 +57,28 @@ String input = "";
 
 void setup() {
   // put your setup code here, to run once:
+e.attach(9);
+c.attach(10);
+d.attach(11);
+
 pinMode(x,OUTPUT);
 digitalWrite(x, LOW);
+pinMode(xdir,OUTPUT);
 digitalWrite(xdir, LOW);
 
 pinMode(y,OUTPUT);
 digitalWrite(y, LOW);
+pinMode(ydir,OUTPUT);
 digitalWrite(ydir, LOW);
 
 pinMode(z,OUTPUT);
 digitalWrite(z, LOW);
+pinMode(zdir,OUTPUT);
 digitalWrite(zdir, LOW);
 
 pinMode(a,OUTPUT);
 digitalWrite(a, LOW);
+pinMode(adir,OUTPUT);
 digitalWrite(adir, LOW);
 
 Serial.begin(115200);
@@ -85,7 +99,10 @@ void loop() {
   // put your main code here, to run repeatedly:
 
 
-readSerial(m, xratio, yratio, zratio, aratio);
+readSerial(m, xratio, yratio, zratio, aratio, serv);
+e.write(serv[0]);
+c.write(serv[1]);
+d.write(serv[2]);
 normalizer(m,b);
 for(int i = 0; i<4; i++){
   n[i] = b[i];
@@ -103,7 +120,13 @@ move(interval, move_s, lastStep, mCurr);
 void ramper(int (&interval)[4], int mCurr[4], int n[4], int (&move_s)[4], int stopT, int fastT){
   for (int i = 0; i < 4; i++){// checking how many steps are still needed
     move_s[i] = n[i] - mCurr[i];
+      // Serial.print(" n[i]: ");
+      // Serial.println(n[i]);
+      // Serial.print(" mCurr[i]: ");
+      // Serial.println(mCurr[i]);
   }
+
+
 
   for (int i = 0; i < 4; i++){
     if (abs(move_s[i])< stopT/(min/1000)){ // check if we should speed ramp or slow down (true means slow down)
@@ -120,7 +143,10 @@ void ramper(int (&interval)[4], int mCurr[4], int n[4], int (&move_s)[4], int st
   }
 }
 
-void move(int inteval[4], int move_s[4], unsigned long (&lastStep)[4], int (&mCurr)[4]){
+
+
+
+void move(int interval[4], int move_s[4], unsigned long (&lastStep)[4], int (&mCurr)[4]){
   if (move_s[0]<0){
     digitalWrite(xdir, HIGH);
   }else{
@@ -145,7 +171,16 @@ void move(int inteval[4], int move_s[4], unsigned long (&lastStep)[4], int (&mCu
     digitalWrite(adir, LOW);
   }
 
+
   for(int i = 0; i < 4; i++){
+      // if (move_s[i]<0){
+      // // Serial.print(" move_s[i]: ");
+      // // Serial.println(move_s[i]);
+      // digitalWrite(adir, HIGH);
+      // }else{
+      // digitalWrite(adir, LOW);
+      // }
+
     if ((micros()-lastStep[i])>interval[i]){
       if (abs(move_s[i])>0){
         step(findM(i));
@@ -157,6 +192,8 @@ void move(int inteval[4], int move_s[4], unsigned long (&lastStep)[4], int (&mCu
         }else{
           mCurr[i] += 1;
         }
+        
+
       }
       
     }
@@ -239,7 +276,7 @@ int set_to_max(int x[4]){
 //   }
 // }
 
-void readSerial(long (&m)[4], float x, float y, float z, float a ){
+void readSerial(long (&m)[4], float x, float y, float z, float a, int (&serv) [4] ){
   
   if (Serial.available() > 0){
     String input = Serial.readStringUntil('\n');
@@ -253,6 +290,12 @@ void readSerial(long (&m)[4], float x, float y, float z, float a ){
     char* third = strtok(NULL, " ");
     
     char* fourth = strtok(NULL, " ");
+
+    serv[0] = atoi(strtok(NULL, " "));
+
+    serv[1] = atoi(strtok(NULL, " "));
+
+    serv[2] = atoi(strtok(NULL, " "));
 
     
     m[0] = atoi(first)*x;
