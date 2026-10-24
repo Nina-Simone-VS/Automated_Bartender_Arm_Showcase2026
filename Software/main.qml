@@ -18,6 +18,12 @@ ApplicationWindow {
     property var fullMenu:[]
     property var orderMenu: []
     property int currentItem: 0
+
+    //loading screens
+    property var videoMenu:[]
+    property var nextOrderMenu: []
+    property string activeVideo:""
+    property string activeNextOrder: ""
     
 
     //order selection
@@ -163,6 +169,15 @@ ApplicationWindow {
                         color: "#4CAF50"
                         z:3
 
+                        //DROPSHADOW!!
+                        layer.enabled:true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#1d401e"
+                            shadowVerticalOffset: 6
+                            shadowBlur: 0.8
+                        }
+
                         Text{
                             anchors.centerIn: parent
                             text: "STILL"
@@ -190,8 +205,13 @@ ApplicationWindow {
                                 isOrdering = false
                                 selectedSide = 0
                                 isStill = false
+                                
+                                let idCurrent = (currentItem+1) %fullMenu.length
+                                activeVideo = "./Images/" + videoMenu[idCurrent]
+                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
+                                
                                 isBusy=true
-                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
+                                backend.startPour(idCurrent, isStill)
                             }
                         }
                     }//end order still btn 
@@ -204,6 +224,15 @@ ApplicationWindow {
                         radius: 30
                         color: "#4CAF50"
                         z:3
+
+                        //DROPSHADOW!!
+                        layer.enabled:true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#1d401e"
+                            shadowVerticalOffset: 6
+                            shadowBlur: 0.8
+                        }
 
                         Text{
                             anchors.centerIn: parent
@@ -232,8 +261,13 @@ ApplicationWindow {
                                 isOrdering = false
                                 selectedSide = 0
                                 isStill = true
+                                
+                                let idCurrent = (currentItem+1) %fullMenu.length
+                                activeVideo = "./Images/" + videoMenu[idCurrent]
+                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
+
                                 isBusy=true
-                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
+                                backend.startPour(idCurrent, isStill)
                             }
                         }
                     }//end order sparkling btn 
@@ -244,6 +278,15 @@ ApplicationWindow {
                         height: 60
                         radius: 30
                         color: "#F44336"
+
+                        //DROPSHADOW!!
+                        layer.enabled:true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#611b16"
+                            shadowVerticalOffset: 6
+                            shadowBlur: 0.8
+                        }
 
                         Text{
                             anchors.centerIn: parent
@@ -373,6 +416,15 @@ ApplicationWindow {
                         color: "#4CAF50"
                         z:3
 
+                        //DROPSHADOW!!
+                        layer.enabled:true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#1d401e"
+                            shadowVerticalOffset: 6
+                            shadowBlur: 0.8
+                        }
+
                         Text{
                             anchors.centerIn: parent
                             text: "STILL"
@@ -400,11 +452,16 @@ ApplicationWindow {
                                 isOrdering = false
                                 selectedSide = 0
                                 isStill = false
+                                
+                                let idCurrent = (currentItem) %fullMenu.length
+                                activeVideo = "./Images/" + videoMenu[idCurrent]
+                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
+
                                 isBusy=true
-                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
+                                backend.startPour(idCurrent, isStill)
                             }
                         }
-                    }//end order still btn 
+                    }//end order still btn drink A
                     
                     //SPARKLING ORDER BUTTON for drink A
                     Rectangle {
@@ -414,6 +471,15 @@ ApplicationWindow {
                         radius: 30
                         color: "#4CAF50"
                         z:3
+
+                        //DROPSHADOW!!
+                        layer.enabled:true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#1d401e"
+                            shadowVerticalOffset: 6
+                            shadowBlur: 0.8
+                        }
 
                         Text{
                             anchors.centerIn: parent
@@ -442,8 +508,13 @@ ApplicationWindow {
                                 isOrdering = false
                                 selectedSide = 0
                                 isStill = true
+                                
+                                let idCurrent = (currentItem) %fullMenu.length
+                                activeVideo = "./Images/" + videoMenu[idCurrent]
+                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
+
                                 isBusy=true
-                                backend.startPour((currentItem+1) %fullMenu.length, isStill)
+                                backend.startPour(idCurrent, isStill)
                             }
                         }
                     }//end order sparkling btn for drink A
@@ -454,6 +525,15 @@ ApplicationWindow {
                         height: 60
                         radius: 30
                         color: "#F44336"
+
+                        //DROPSHADOW!!
+                        layer.enabled:true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: "#611b16"
+                            shadowVerticalOffset: 6
+                            shadowBlur: 0.8
+                        }
 
                         Text{
                             anchors.centerIn: parent
@@ -538,7 +618,7 @@ ApplicationWindow {
 
         MediaPlayer {
             id: pouringPlayer
-            source: "./Images/LoadingVidG.mp4"
+            source: activeVideo
             loops: MediaPlayer.Infinite
             videoOutput: pouringVideo
         }
@@ -568,7 +648,7 @@ ApplicationWindow {
 
         Image{
             anchors.fill: parent
-            source: "./Images/NextOrderG.jpeg"
+            source: activeNextOrder
             fillMode: Image.PreserveAspectCrop
         }
 
@@ -606,10 +686,13 @@ ApplicationWindow {
         target: backend
 
         //get drinks list
-        function onUpdatedDrinks(drinkMenu, orderList) {
-            fullMenu = drinkMenu
+        function onUpdatedDrinks(drinkList, orderList, videoList, nextOrderList) {
+            fullMenu = drinkList
             orderMenu = orderList
-            console.log("QML received drinks and order bg")
+            videoMenu = videoList
+            nextOrderMenu = nextOrderList
+
+            console.log("QML received all menus and videos")
         }
 
         //waits for arm not busy/stationary/emit

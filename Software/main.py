@@ -48,7 +48,7 @@ class BartWorker(QThread):
 #worker thread for arm movement
 
 class Backend(QObject):
-    updatedDrinks = Signal(list, list, arguments = ['drinkList', 'orderList'])
+    updatedDrinks = Signal(list, list, list, list, arguments = ['drinkList', 'orderList', 'videoList', 'nextOrderList'])
     armReady = Signal()
 
     def __init__(self):
@@ -68,7 +68,10 @@ class Backend(QObject):
     def loadDrinks(self):
         drinkMenu = ["DrinkB.jpeg","DrinkC.jpeg","DrinkG.jpeg","DrinkP.jpeg","DrinkW.jpeg"]
         orderMenu= ["OrderB.jpeg","OrderC.jpeg","OrderG.jpeg","OrderP.jpeg","OrderW.jpeg"]
-        self.updatedDrinks.emit(drinkMenu, orderMenu)
+        videoMenu = ["LoadingVidG.mp4", "LoadingVidG.mp4", "LoadingVidG.mp4", "LoadingVidG.mp4", "LoadingVidG.mp4"]
+        nextOrderMenu = ["NextOrderG.jpeg", "NextOrderG.jpeg", "NextOrderG.jpeg", "NextOrderG.jpeg", "NextOrderG.jpeg"]
+
+        self.updatedDrinks.emit(drinkMenu, orderMenu, videoMenu, nextOrderMenu)
     #end load python list of drink menu fn
 
     @Slot(int, bool) #QML can call & give int and bool
