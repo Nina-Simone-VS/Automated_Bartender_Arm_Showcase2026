@@ -251,7 +251,7 @@ class Bartender:
     def __init__(self, arm: Arm, status=lambda m: None):
         self.arm, self.status = arm, status
 
-    def make_drink(self, name,with_mixer=True):
+    def make_drink(self, name):
         if name not in RECIPES:
             raise KeyError(f"Unknown drink: {name}")
         r = RECIPES[name]
@@ -263,7 +263,7 @@ class Bartender:
             for Cordial, shots in r["Cordial"]:
                 self.status(f"Dispensing {Cordial} x{shots}")
                 self.shot(Cordial, shots)
-            if with_mixer and r["mixer"]:
+            if r["mixer"]:
                 self.status(f"Adding {r['mixer']}")
                 self.mixer(r["mixer"])
             self.status("Serving")
