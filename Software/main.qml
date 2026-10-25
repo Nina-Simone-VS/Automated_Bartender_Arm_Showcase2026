@@ -30,7 +30,6 @@ ApplicationWindow {
     property bool isOrdering: false
     property int selectedSide: 0 //1 = left img & 2 = right img or drink clicked
     property bool isBusy: false
-    property bool isStill: false
     property bool showNextOrder: false
 
     RowLayout {
@@ -160,65 +159,9 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     spacing: 20
                     
-                    //STILL ORDER BUTTON for drink B
-                    Rectangle {
-                        id: stillOrderBbtn
-                        width: 180
-                        height: 60
-                        radius: 30
-                        color: "#4CAF50"
-                        z:3
-
-                        //DROPSHADOW!!
-                        layer.enabled:true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: "#1d401e"
-                            shadowVerticalOffset: 6
-                            shadowBlur: 0.8
-                        }
-
-                        Text{
-                            anchors.centerIn: parent
-                            text: "STILL"
-                            font.pixelSize: 25
-                            font.bold : true
-                            color: "white"
-                        }
-
-                        //touch visual feedback
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: 0.4
-                            visible: stillOrderBMouse.pressed
-                            radius: 30
-                            z:4
-                        }
-
-                        MouseArea{
-                            id: stillOrderBMouse
-                            z: 5
-                            anchors.fill: parent
-                            onClicked: {
-                                console.log("MOTORS MOVING for Drink B")
-                                isOrdering = false
-                                selectedSide = 0
-                                isStill = false
-                                
-                                let idCurrent = (currentItem+1) %fullMenu.length
-                                activeVideo = "./Images/" + videoMenu[idCurrent]
-                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
-                                
-                                isBusy=true
-                                backend.startPour(idCurrent, isStill)
-                            }
-                        }
-                    }//end order still btn 
-                    
                     //SPARKLING ORDER BUTTON for drink B
                     Rectangle {
-                        id: sparklingOrderBbtn
+                        id: orderBbtn
                         width: 180
                         height: 60
                         radius: 30
@@ -236,7 +179,7 @@ ApplicationWindow {
 
                         Text{
                             anchors.centerIn: parent
-                            text: "SPARKLING"
+                            text: "ORDER"
                             font.pixelSize: 25
                             font.bold : true
                             color: "white"
@@ -247,27 +190,26 @@ ApplicationWindow {
                             anchors.fill: parent
                             color: "black"
                             opacity: 0.4
-                            visible: sparklingOrderBMouse.pressed
+                            visible: orderBMouse.pressed
                             radius: 30
                             z:4
                         }
 
                         MouseArea{
-                            id: sparklingOrderBMouse
+                            id: orderBMouse
                             z: 5
                             anchors.fill: parent
                             onClicked: {
                                 console.log("MOTORS MOVING for Drink B")
                                 isOrdering = false
                                 selectedSide = 0
-                                isStill = true
                                 
                                 let idCurrent = (currentItem+1) %fullMenu.length
                                 activeVideo = "./Images/" + videoMenu[idCurrent]
                                 activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
 
                                 isBusy=true
-                                backend.startPour(idCurrent, isStill)
+                                backend.startPour(idCurrent)
                             }
                         }
                     }//end order sparkling btn 
@@ -405,67 +347,10 @@ ApplicationWindow {
                 Column {
                     anchors.centerIn: parent
                     spacing: 20
-
-
-                    //STILL ORDER BUTTON for drink A
-                    Rectangle {
-                        id: stillOrderAbtn
-                        width: 180
-                        height: 60
-                        radius: 30
-                        color: "#4CAF50"
-                        z:3
-
-                        //DROPSHADOW!!
-                        layer.enabled:true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: "#1d401e"
-                            shadowVerticalOffset: 6
-                            shadowBlur: 0.8
-                        }
-
-                        Text{
-                            anchors.centerIn: parent
-                            text: "STILL"
-                            font.pixelSize: 25
-                            font.bold : true
-                            color: "white"
-                        }
-
-                        //touch visual feedback
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: 0.4
-                            visible: stillOrderAMouse.pressed
-                            radius: 30
-                            z:4
-                        }
-
-                        MouseArea{
-                            id: stillOrderAMouse
-                            z: 5
-                            anchors.fill: parent
-                            onClicked: {
-                                console.log("MOTORS MOVING for Drink A (Still)")
-                                isOrdering = false
-                                selectedSide = 0
-                                isStill = false
-                                
-                                let idCurrent = (currentItem) %fullMenu.length
-                                activeVideo = "./Images/" + videoMenu[idCurrent]
-                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
-
-                                isBusy=true
-                                backend.startPour(idCurrent, isStill)
-                            }
-                        }
-                    }//end order still btn drink A
                     
-                    //SPARKLING ORDER BUTTON for drink A
+                    //ORDER BUTTON for drink A
                     Rectangle {
-                        id: sparklingOrderAbtn
+                        id: orderAbtn
                         width: 180
                         height: 60
                         radius: 30
@@ -483,7 +368,7 @@ ApplicationWindow {
 
                         Text{
                             anchors.centerIn: parent
-                            text: "SPARKLING"
+                            text: "ORDER"
                             font.pixelSize: 25
                             font.bold : true
                             color: "white"
@@ -494,30 +379,29 @@ ApplicationWindow {
                             anchors.fill: parent
                             color: "black"
                             opacity: 0.4
-                            visible: sparklingOrderAMouse.pressed
+                            visible: orderAMouse.pressed
                             radius: 30
                             z:4
                         }
 
                         MouseArea{
-                            id: sparklingOrderAMouse
+                            id: orderAMouse
                             z: 5
                             anchors.fill: parent
                             onClicked: {
                                 console.log("MOTORS MOVING for Drink A (Sparkling)")
                                 isOrdering = false
                                 selectedSide = 0
-                                isStill = true
                                 
                                 let idCurrent = (currentItem) %fullMenu.length
                                 activeVideo = "./Images/" + videoMenu[idCurrent]
                                 activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
 
                                 isBusy=true
-                                backend.startPour(idCurrent, isStill)
+                                backend.startPour(idCurrent)
                             }
                         }
-                    }//end order sparkling btn for drink A
+                    }//end order btn for drink A
 
                     // RED CANCEL Btn for drink A
                     Rectangle {
@@ -650,14 +534,59 @@ ApplicationWindow {
             anchors.fill: parent
             source: activeNextOrder
             fillMode: Image.PreserveAspectCrop
+
+            //NEXT ORDER BUTTON 
+            Rectangle {
+                id: nextOrderbtn
+                width: 200
+                height: 60
+                radius: 30
+                color: "#4CAF50"
+                z:95
+
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: 80
+                anchors.horizontalCenterOffset: -245
+
+                //DROPSHADOW!!
+                layer.enabled:true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: "#1d401e"
+                    shadowVerticalOffset: 6
+                    shadowBlur: 0.8
+                }
+
+                Text{
+                    anchors.centerIn: parent
+                    text: "NEXT ORDER"
+                    font.pixelSize: 22
+                    font.bold : true
+                    color: "white"
+                }
+
+                //touch visual feedback
+                Rectangle {
+                    anchors.fill: parent
+                    color: "black"
+                    opacity: 0.4
+                    visible: nextOrderMouse.pressed
+                    radius: 30
+                    z:4
+                }
+
+                MouseArea{
+                    id: nextOrderMouse
+                    z: 96
+                    anchors.fill: parent
+                    onClicked: {
+                        showNextOrder = false
+                    }
+                }
+            }//end next order btn
         }
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                showNextOrder = false
-            }
-        }
+        
     }
 
     //Kiosk Mode Escape

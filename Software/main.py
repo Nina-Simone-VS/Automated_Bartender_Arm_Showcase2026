@@ -6,16 +6,12 @@ from PySide6.QtCore import QObject, Signal, Slot , QThread
 #import hardware code
 import Bartender_arm_movement_code
 
-#DELETE THIS ↓
-import time
-# ↑
 class BartWorker(QThread):
     sequenceDone = Signal()
 
-    def __init__(self, drinkName, withMixer):
+    def __init__(self, drinkName):
         super().__init__()
         self.drinkName = drinkName
-        self.withMixer = withMixer
     #end constructor
 
     def run(self):
@@ -36,10 +32,6 @@ class BartWorker(QThread):
             print("HARDWARE THREAD: Drink completed")
         except Exception as e:
             print(f"HARDWARE THREAD error: {e}")
-
-            #fake an order for me DELETE THIS
-            print(f"\nSimulate 5sec delay for testing UI")
-            time.sleep(5)
         finally:
             #unlock QML screen
             self.sequenceDone.emit() 
@@ -66,23 +58,22 @@ class Backend(QObject):
     #end constructor fn
 
     def loadDrinks(self):
-        drinkMenu = ["DrinkB.jpeg","DrinkC.jpeg","DrinkG.jpeg","DrinkP.jpeg","DrinkW.jpeg"]
+        drinkMenu = ["DrinkB.png","DrinkC.png","DrinkG.png","DrinkP.png","DrinkW.png"]
         orderMenu= ["OrderB.jpeg","OrderC.jpeg","OrderG.jpeg","OrderP.jpeg","OrderW.jpeg"]
-        videoMenu = ["LoadingVidG.mp4", "LoadingVidG.mp4", "LoadingVidG.mp4", "LoadingVidG.mp4", "LoadingVidG.mp4"]
-        nextOrderMenu = ["NextOrderG.jpeg", "NextOrderG.jpeg", "NextOrderG.jpeg", "NextOrderG.jpeg", "NextOrderG.jpeg"]
+        videoMenu = ["LoadingVidB.mp4", "LoadingVidC.mp4", "LoadingVidG.mp4", "LoadingVidP.mp4", "LoadingVidW.mp4"]
+        nextOrderMenu = ["NextOrderB.png", "NextOrderC.png", "NextOrderG.png", "NextOrderP.png", "NextOrderW.png"]
 
         self.updatedDrinks.emit(drinkMenu, orderMenu, videoMenu, nextOrderMenu)
     #end load python list of drink menu fn
 
-    @Slot(int, bool) #QML can call & give int and bool
-    def startPour(self,drinkIndex , isStill):
+    @Slot(int) #QML can call & give int
+    def startPour(self,drinkIndex):
         drinkName = self.recipeNames[drinkIndex]
-        withMixer = isStill
 
         print("BACKEND: Asynchronous execution of bg thread for motors...")
 
         #thread setup for GUI and motors
-        self.worker = BartWorker(drinkName, withMixer)
+        self.worker = BartWorker(drinkName)
         self.worker.sequenceDone.connect(self.finishPour)
 
         #MOTORS STARTING
