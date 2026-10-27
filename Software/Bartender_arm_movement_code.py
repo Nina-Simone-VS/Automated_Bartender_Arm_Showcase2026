@@ -1,313 +1,307 @@
-import math
-import time
-import logging
-import threading
-from dataclasses import dataclass, replace
+/*
+_________Bartender Robot Arduino Code_________
 
-try :
-    import serial  # pip install pyserial if you dont have the module 
-    
-except ImportError:
-    serial = None
+The current setup has the base motor at X, first joint at Y, second joint at Z and the gripper joint at A
 
-log = logging.getLogger("bartender")
+The servo (for the grippers) have been implimented.
+Gear ratios have been implimented
+Direction error was corrected
 
-# ===== CONFIGURATION ====
-SERIAL_PORT = "/dev/serial0"    # Wired to TX/RXpins on Raspberry Pi
-BAUD = 115200                    # the speed of the connection , got it on the Arduino code 
-SEND_INTERVAL = 0.030            # amount of seconds between the signals  
+___HOW TO USE___
+
+Send joint angles as a string in the serial input/output (TX pin on the raspbarry pi and RT pin on the Arduino).
+Set the baud rate (of the raspbarry pi) to 115200
+Send the signal with an interval between. eg the signal is sent every 30ms. (Sending the signal too fast can cause errors because the arduino buffer isnt too large but the code can be optimised to improve this)
+At the moment the signal is just the angles with spaces in between like "30 75 310 180 0 0 0". First 4 are the stepper motors last 3 are for the servos
 
 
-# --- arm geometry (mm) ---
-L1 = 360        
-L2 = 345        
-TOOL_LEN = 50 
-ELBOW_UP = True
+*/
 
-# --- joints: base(X), shoulder(Y), elbow(Z), wrist(A) ---
-# These are the Inverse Kinematics-frame degrees and HOME_Q is the starting point when we turn the arm on .
-HOME_Q = (0.0, 90.0, -150.0, 60.0)          # we need to set this
-JOINT_SIGN = (1, 1, 1, 1)                   # if we are wanting it to go in the opposite direction make it -1
-JOINT_LIMITS = [(-360, 360), (-180, 180), (-180, 180), (-180, 180)] 
+#include <Servo.h>
 
-# Output of the motors that we will need to change in testing 
-MAX_SPEED = (25.0, 12.0, 25.0, 30.0)
-MAX_ACCEL = (30.0, 15.0, 30.0, 40.0)
-SMOOTH_TIME = 0.5     
-SETTLE_TIME = 0.8    
+Servo e;
+Servo c;
+Servo d;
 
-# --- gripper ---
-GRIPPER_ENABLED = True   
-GRIP_OPEN = 140           
-GRIP_CLOSED = 70          
-GRIP_TIME = 1.2 
-GRIP_MIRROR = (False, False, False)           
-CARRY_SCALE = 0.6     # slows the arm down when the cup has the liquid in it 
-PRECISE_SCALE = 0.4   # slows the arm down when the arm is picking up the cup , dispenses the shot and giving the customers their order   
+int serv[4] = {90, 90, 90, 90};
 
-# ---- positions ----
+int x = 2;
+int y = 3;
+int z = 4;
+int a = 12;
+int xdir = 5;
+int ydir = 6;
+int zdir = 7;
+int adir = 13;
 
-@dataclass(frozen=True)
-class Pose:
-    x: float      
-    y: float
-    z: float
-    pitch: float  
+float xratio = (130.0/15.0);
+float yratio = 60;
+float zratio = 27.2;
+float aratio = 32;
 
-def offset(p, dx=0.0, dy=0.0, dz=0.0, pitch=None):
-    return replace(p, x=p.x + dx, y=p.y + dy, z=p.z + dz, pitch=p.pitch if pitch is None else pitch)
+long m[4] = {0,0,0,0};
+long b[4];
+int n[4];
+int interval[4] = {3000,3000,3000,3000}; // stores the delay between steps (the speed the motor needs)
+unsigned long lastStep [4] = {0,0,0,0}; //the time the last step happened
 
-CUP_PICK = Pose(300, -200, -100, -90)        
-CUP_CLEARANCE = 50  
+int mCurr[4] = {0,0,0,0}; //current angle in steps
+int move_s[4] = {0,0,0,0}; // how many steps still need to be made
 
-DISPENSERS = {
-    "passion_fruit":   Pose(330, 120, 230, 90),
-    "pomegranate":     Pose(330,  40, 230, 90),
-    "blueberry":     Pose(330, -40, 230, 90),
-    "watermelon": Pose(330, -120, 230, 90),
-    "cranberry": Pose(330, 170, 230, 90),
+int max = 900; //max speed of 300 rpm is 1 step per millisecond and 1 step per 1000 microseconds (currently set 100 microseconds faster)
+int min = 2500; //min speed of 100 rpm is 1 step per 3 milliseconds and 1 step per 3000 microseconds (currently set 500 microseconds faster)
+
+float slowT = 1000; // how many steps it takes to slow down (values below 1000 are unstable for some reason)
+float fastT = 900; // how many steps it takes to get to max speed from min
+String input = "";
+
+void setup() {
+  // put your setup code here, to run once:
+e.attach(9);
+c.attach(10);
+d.attach(11);
+
+pinMode(x,OUTPUT);
+digitalWrite(x, LOW);
+pinMode(xdir,OUTPUT);
+digitalWrite(xdir, LOW);
+
+pinMode(y,OUTPUT);
+digitalWrite(y, LOW);
+pinMode(ydir,OUTPUT);
+digitalWrite(ydir, LOW);
+
+pinMode(z,OUTPUT);
+digitalWrite(z, LOW);
+pinMode(zdir,OUTPUT);
+digitalWrite(zdir, LOW);
+
+pinMode(a,OUTPUT);
+digitalWrite(a, LOW);
+pinMode(adir,OUTPUT);
+digitalWrite(adir, LOW);
+
+Serial.begin(115200);
+m[0] = 0;
+m[1] = 0;
+m[2] = 0;
+m[3] = 0;
 }
-PRESS_TRAVEL = 25.0     # distance the arm needs to press up to dispense the shot 
-DISPENSE_DWELL = 1.5    # time it takes for shot to be dispense
-DISPENSER_DROP = 80.0   # distance arm needs to be below dispensers to move safely 
+void normalizer(long m[4], long (&b)[4]){
 
-MIXERS = {"sprite": Pose(250, 220, 200, 90)}
-MIXER_PRESS = {"sprite": (0, -20, 0)} 
-MIXER_FILL_TIME = {"sprite": 4.0}              
-
-HANDOVER = Pose(300, 0, 80, 90)                
-HANDOVER_WAIT = 6.0                           
-
-#----- recipes -----
-RECIPES = {
-    # name: cordial [(dispenser, shots)], mixer
-    "Passion_fruit_Paradise":    {"Cordial": [("passion_fruit", 1)], "mixer": "sprite"},
-    "Pomegranate_Punch":         {"Cordial": [("pomegranate", 1)],   "mixer": "sprite"},
-    "Blueberry_Bliss":           {"Cordial": [("blueberry", 1)],   "mixer": "sprite"},
-    "Cranberry_Crush":           {"Cordial": [("cranberry", 1)], "mixer": "sprite"},
-    "Watermelon_Wonder":         {"Cordial": [("watermelon", 1)], "mixer": "sprite"},
+  for (int i = 0; i < 4; i++){
+     b[i] = m[i]*200 / 360;
+  }
 }
 
-# == KINEMATICS ==
-def ik(p: Pose):
-    base = math.degrees(math.atan2(p.y, p.x))
-    r = math.hypot(p.x, p.y)
-    ph = math.radians(p.pitch)
-    wr = r - TOOL_LEN * math.cos(ph)        
-    wz = p.z - TOOL_LEN * math.sin(ph)
-    c2 = (wr * wr + wz * wz - L1 * L1 - L2 * L2) / (2 * L1 * L2)
-    if abs(c2) > 1.0:
-        raise ValueError(f"Pose {p} is out of reach")
-    q2 = math.acos(c2) * (-1 if ELBOW_UP else 1)
-    q1 = math.atan2(wz, wr) - math.atan2(L2 * math.sin(q2), L1 + L2 * math.cos(q2))
-    q1d, q2d = math.degrees(q1), math.degrees(q2)
-    q3 = p.pitch - (q1d + q2d)              
-    return [base, q1d, q2d, q3]
 
-def fk(q):
-    base, q1, q2, q3 = q
-    a1, a12 = math.radians(q1), math.radians(q1 + q2)
-    pitch = q1 + q2 + q3
-    ph = math.radians(pitch)
-    r = L1 * math.cos(a1) + L2 * math.cos(a12) + TOOL_LEN * math.cos(ph)
-    z = L1 * math.sin(a1) + L2 * math.sin(a12) + TOOL_LEN * math.sin(ph)
-    b = math.radians(base)
-    return Pose(r * math.cos(b), r * math.sin(b), z, pitch)
+void loop() {
+  // put your main code here, to run repeatedly:
 
 
-# == MOTION PROFILE ==
-def s_curve(dist, vmax, amax, dt, smooth):
-    ta = vmax / amax
-    if dist < vmax * ta:                    
-        ta = math.sqrt(dist / amax)
-        vpk, tc = amax * ta, 0.0
-    else:
-        vpk, tc = vmax, (dist - vmax * ta) / vmax
-    total = 2 * ta + tc
-    n = max(2, int(total / dt) + 1)
-    v = []
-    for i in range(n):
-        t = i * dt
-        if t < ta:
-            v.append(amax * t)
-        elif t < ta + tc:
-            v.append(vpk)
-        else:
-            v.append(max(0.0, vpk - amax * (t - ta - tc)))
-    w = max(1, int(smooth / dt))
-    v = [0.0] * (w - 1) + v + [0.0] * w
-    sm = [sum(v[i:i + w]) / w for i in range(len(v) - w + 1)]
-    out, acc = [], 0.0
-    for x in sm:
-        acc += x
-        out.append(acc)
-    return [o / acc for o in out]
+readSerial(m, xratio, yratio, zratio, aratio, serv);
+e.write(serv[0]);
+c.write(serv[1]);
+d.write(serv[2]);
+normalizer(m,b);
+for(int i = 0; i<4; i++){
+  n[i] = b[i];
+}
+ramper(interval, mCurr, n, move_s, slowT, fastT);
+if (move_s[0] != 0 || move_s[1] != 0 || move_s[2] != 0 || move_s[3] != 0){
+move(interval, move_s, lastStep, mCurr);
+}
+
+}
 
 
-class Aborted(Exception):
-    pass
 
 
-# == ARM ==
-class Arm:
-    def __init__(self, port=SERIAL_PORT):
-        self.port = port
-        self.ser = None
-        self.q = list(HOME_Q)
-        self.stop_event = threading.Event()
-        self.grip = GRIP_OPEN  
+void ramper(int (&interval)[4], int mCurr[4], int n[4], int (&move_s)[4], int stopT, int fastT){
+  for (int i = 0; i < 4; i++){// checking how many steps are still needed
+    move_s[i] = n[i] - mCurr[i];
+      // Serial.print(" n[i]: ");
+      // Serial.println(n[i]);
+      // Serial.print(" mCurr[i]: ");
+      // Serial.println(mCurr[i]);
+  }
 
-    # ---- serial ----
-    def connect(self):
-        if serial is None :
-            raise RuntimeError("pip install pyserial")
-        self.ser = serial.Serial(self.port, BAUD, timeout=0.05)
-        time.sleep(2.0)                     
-        self.ser.reset_input_buffer()
-        self.send(self.q)                  
+
+
+  for (int i = 0; i < 4; i++){
+    if (abs(move_s[i])< stopT/(min/1000)){ // check if we should speed ramp or slow down (true means slow down)
+    //     interval[i] += (min - interval[i])/(abs(move_s[i])); // step down speed till min
+
+    if (interval[i]+((min - max)/slowT)<=min){//check if we are going to exede max
+        interval[i] += (min - max)/slowT;// add incriment to interval
+    }
+    }else{
+      if (interval[i]-((min - max)/fastT)>=max){//check if we are going to exede max
+        interval[i] -= (min - max)/fastT;// add incriment to interval
+      }
+    }
+  }
+}
+
+
+
+
+void move(int interval[4], int move_s[4], unsigned long (&lastStep)[4], int (&mCurr)[4]){
+  if (move_s[0]<0){
+    digitalWrite(xdir, HIGH);
+  }else{
+    digitalWrite(xdir, LOW);
+  }
+
+  if (move_s[1]<0){
+    digitalWrite(ydir, HIGH);
+  }else{
+    digitalWrite(ydir, LOW);
+  }
+
+  if (move_s[2]<0){
+    digitalWrite(zdir, HIGH);
+  }else{
+    digitalWrite(zdir, LOW);
+  }
+
+  if (move_s[3]<0){
+    digitalWrite(adir, HIGH);
+  }else{
+    digitalWrite(adir, LOW);
+  }
+
+
+  for(int i = 0; i < 4; i++){
+      // if (move_s[i]<0){
+      // // Serial.print(" move_s[i]: ");
+      // // Serial.println(move_s[i]);
+      // digitalWrite(adir, HIGH);
+      // }else{
+      // digitalWrite(adir, LOW);
+      // }
+
+    if ((micros()-lastStep[i])>interval[i]){
+      if (abs(move_s[i])>0){
+        step(findM(i));
+        lastStep[i] = micros();
+
         
-    def close(self):
-        if self.ser:
-            self.ser.close()
+        if (move_s[i]<=0){
+          mCurr[i] -= 1;
+        }else{
+          mCurr[i] += 1;
+        }
+        
 
-    def to_firmware(self, q):                                   
-        out = []
-        for i in range(4):
-            lo, hi = JOINT_LIMITS[i]
-            if not lo <= q[i] <= hi:
-                raise ValueError(f"Joint {i} angle {q[i]:.1f} outside limits {lo}..{hi}")
-            out.append(round(JOINT_SIGN[i] * (q[i] - HOME_Q[i])))
-        return out
+      }
+      
+    }
+  }
+}
 
-    def send(self, q):
-        servos = [int(round(180 - self.grip)) if m else int(round(self.grip)) for m in GRIP_MIRROR]
-        line = " ".join(str(a) for a in self.to_firmware(q) + servos) + "\n"
-        self.ser.write(line.encode())       
-        self.ser.reset_input_buffer()         
+void step(int M){
+digitalWrite(M, HIGH);
+delayMicroseconds(2);
+digitalWrite(M, LOW);
+}
 
-    # ---- Motion path ----
+int findM(int i){
+  if(i==0){
+    return x;
+  }else if (i==1){
+    return y;
+  }else if (i==2){
+    return z;
+  }else{
+    return a;
+  }
+}
+/*
+float abs(float n){
+  if (n<0){
+    n = -n;
+  }
+  return n
+}
+*/
+int set_to_min(int x[4]){
+  for (int i = 0; i < 4; i++){
+    x[i] = min;
+  }
+}
+
+int set_to_max(int x[4]){
+  for (int i = 0; i < 4; i++){
+    x[i] = max;
+  }
+}
+
+// void readSerial(long (&m)[4] ){
+  
+//   if (Serial.available() > 0){
+//     input = Serial.readStringUntil('\n');
+//     Serial.print("I see: ");
+//     Serial.println(input);
+//     int h = 0;
+//     String first = "";
+//     while (input[h] != ' '){
+//       first = first + input[h];
+//       h++; 
+//     }
+//     String second = "";
+//     h++;
+//     while (input[h] != ' '){
+//       second = second + input[h];
+//       h++; 
+//     }
     
-    def run(self, path, speed_scale=1.0):
-        N = 60
-        pts = [path(i / N) for i in range(N + 1)]
-        for p in pts:
-            self.to_firmware(p)          
-        lengths = [sum(abs(pts[k + 1][j] - pts[k][j]) for k in range(N)) for j in range(4)]
-        lead = max(range(4), key=lambda j: lengths[j] / MAX_SPEED[j])
-        if lengths[lead] < 0.3:
-            self.send(pts[-1])
-            self.q = pts[-1]
-            return
-        prof = s_curve(lengths[lead], MAX_SPEED[lead] * speed_scale,
-                       MAX_ACCEL[lead] * speed_scale, SEND_INTERVAL, SMOOTH_TIME)
-        t0 = time.monotonic()
-        for k, s in enumerate(prof):
-            if self.stop_event.is_set():
-                raise Aborted()
-            q = path(s)
-            self.send(q)
-            self.q = q
-            delay = t0 + (k + 1) * SEND_INTERVAL - time.monotonic()
-            if delay > 0:
-                time.sleep(delay)
-        self.hold(SETTLE_TIME)
+//     String third = "";
+//     h++;
+//     while (input[h] != ' '){
+//       third = third + input[h];
+//       h++; 
+//     }
+//     h++;
+//     String fourth = "";
+//     while (input[h] != ' '){
+//       fourth = fourth + input[h];
+//       h++; 
+//     }
+    
+//     m[0] = first.toInt();
+//     m[1] = second.toInt();
+//     m[2] = third.toInt();
+//     m[3] = fourth.toInt();
+//   }
+// }
 
-    def hold(self, seconds):
-        end = time.monotonic() + seconds
-        while time.monotonic() < end:
-            if self.stop_event.is_set():
-                raise Aborted()
-            time.sleep(0.02)
+void readSerial(long (&m)[4], float x, float y, float z, float a, int (&serv) [4] ){
+  
+  if (Serial.available() > 0){
+    String input = Serial.readStringUntil('\n');
+    char input2[30];
+    input.toCharArray(input2,sizeof(input2));
 
-    def move_joints(self, q_target, speed_scale=1.0):
-        q0 = list(self.q)
-        self.run(lambda s: [a + (b - a) * s for a, b in zip(q0, q_target)], speed_scale)
+    char* first = strtok(input2," ");
 
-    def move_to(self, p: Pose, speed_scale=1.0):
-        a = fk(self.q)
-        self.run(lambda s: ik(Pose(a.x + (p.x - a.x) * s, a.y + (p.y - a.y) * s,
-                                a.z + (p.z - a.z) * s,a.pitch + (p.pitch - a.pitch) * s)), speed_scale)
+    char* second = strtok(NULL, " ");
+    
+    char* third = strtok(NULL, " ");
+    
+    char* fourth = strtok(NULL, " ");
 
-    def gripper(self, closed: bool):
-        angle = GRIP_CLOSED if closed else GRIP_OPEN
-        log.info("gripper %s -> %d deg", "CLOSE" if closed else "OPEN", angle)
-        if not GRIPPER_ENABLED:
-            self.hold(GRIP_TIME)
-            return
-        start = self.grip
-        steps = max(1, int(GRIP_TIME / SEND_INTERVAL))
-        t0 = time.monotonic()
-        for k in range(1, steps + 1):
-            if self.stop_event.is_set():
-                raise Aborted()
-            self.grip = start + (angle - start) * k / steps
-            self.send(self.q)
-            delay = t0 + k * SEND_INTERVAL - time.monotonic()
-            if delay > 0:
-                time.sleep(delay)
-        self.hold(0.2)   
-# =========================================================== DRINK LOGIC ==
-class Bartender:
-    def __init__(self, arm: Arm, status=lambda m: None):
-        self.arm, self.status = arm, status
+    serv[0] = atoi(strtok(NULL, " "));
 
-    def make_drink(self, name):
-        if name not in RECIPES:
-            raise KeyError(f"Unknown drink: {name}")
-        r = RECIPES[name]
-        a = self.arm
-        a.stop_event.clear()
-        try:
-            self.status("Collecting cup")
-            self.pick_up_cup()
-            for Cordial, shots in r["Cordial"]:
-                self.status(f"Dispensing {Cordial} x{shots}")
-                self.shot(Cordial, shots)
-            if r["mixer"]:
-                self.status(f"Adding {r['mixer']}")
-                self.mixer(r["mixer"])
-            self.status("Serving")
-            self.hand_over()
-        finally:
-            self.status("Returning home")
-            a.move_joints(list(HOME_Q), 1.0) if not a.stop_event.is_set() else None
+    serv[1] = atoi(strtok(NULL, " "));
 
-    def pick_up_cup(self):
-        a = self.arm
-        above = offset(CUP_PICK, dz=CUP_CLEARANCE)
-        a.move_to(above)                                  
-        a.gripper(False)
-        a.move_to(CUP_PICK, PRECISE_SCALE)                
-        a.gripper(True)
-        a.move_to(above, PRECISE_SCALE)                   
-        a.move_to(offset(above, pitch=90), CARRY_SCALE)   
+    serv[2] = atoi(strtok(NULL, " "));
 
-    def shot(self, spirit, shots):
-        a, d = self.arm, DISPENSERS[spirit]
-        travel = offset(d, dz=-(PRESS_TRAVEL + DISPENSER_DROP))
-        a.move_to(travel, CARRY_SCALE)
-        for i in range(shots):
-            a.move_to(offset(d, dz=-PRESS_TRAVEL), PRECISE_SCALE)   
-            a.move_to(d, PRECISE_SCALE)                              
-            a.hold(DISPENSE_DWELL)
-            a.move_to(offset(d, dz=-PRESS_TRAVEL), PRECISE_SCALE)    # release
-        a.move_to(travel, CARRY_SCALE)
+    
+    m[0] = atoi(first)*x;
+    m[1] = atoi(second)*y;
+    m[2] = atoi(third)*z;
+    m[3] = atoi(fourth)*a;
 
-    def mixer(self, name):
-        a, m = self.arm, MIXERS[name]
-        a.move_to(offset(m, dz=-60), CARRY_SCALE)
-        a.move_to(m, PRECISE_SCALE)
-        a.move_to(offset(m, *MIXER_PRESS[name]), PRECISE_SCALE)   
-        a.hold(MIXER_FILL_TIME[name])
-        a.move_to(m, PRECISE_SCALE)                             
-        a.hold(1.0)                                             
-        a.move_to(offset(m, dz=-60), CARRY_SCALE)   
-
-    def hand_over(self):
-        a = self.arm
-        a.move_to(HANDOVER, CARRY_SCALE)
-        a.hold(HANDOVER_WAIT)        
-        a.gripper(False)
-        a.move_to(offset(HANDOVER, dx=-60, dz=-40), PRECISE_SCALE)   
-
-
+  }
+}
