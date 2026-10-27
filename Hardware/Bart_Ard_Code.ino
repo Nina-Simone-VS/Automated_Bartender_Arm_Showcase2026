@@ -23,7 +23,7 @@ Servo e;
 Servo c;
 Servo d;
 
-int serv[4] = {0, 0, 0, 0};
+int serv[4] = {90, 90, 90, 90};
 
 int x = 2;
 int y = 3;
@@ -82,10 +82,10 @@ pinMode(adir,OUTPUT);
 digitalWrite(adir, LOW);
 
 Serial.begin(115200);
-m[0] = 360*10;
-m[1] = -360*7;
-m[2] = -360*2;
-m[3] = -360*5;
+m[0] = 0;
+m[1] = 0;
+m[2] = 0;
+m[3] = 0;
 }
 void normalizer(long m[4], long (&b)[4]){
 
