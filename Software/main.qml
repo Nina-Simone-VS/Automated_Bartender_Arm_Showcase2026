@@ -32,465 +32,148 @@ ApplicationWindow {
     property bool isBusy: false
     property bool showNextOrder: false
 
-    RowLayout {
-        anchors.fill: parent
-        anchors.margins:10
-        spacing: 20
-
-        //col 1/ <
-        Rectangle {
-            opacity: isOrdering ? 0:1
-            Layout.preferredWidth: 80
-            Layout.fillHeight: true
-            color: "transparent"
-
-            Text {
-                anchors.centerIn: parent
-                text: "<"
-                font.pixelSize: 64
-                color: "black"
-            }
-
-            //touch visual feedback
-            Rectangle {
-                anchors.fill: parent
-                color: "black"
-                opacity: 0.4
-                visible: lArrowMouse.pressed
-                z:1
-            }
-
-            //WHAT HAPPENS WHEN CLICKED
-            MouseArea {
-                id: lArrowMouse
-                z:2
-                anchors.fill: parent
-                enabled: !isOrdering
-                onClicked: {
-                    console.log("Left arrow clicked")
-                    if (fullMenu.length>0) {
-                        currentItem = (currentItem - 1 + fullMenu.length) %fullMenu.length
-                    }
-                }
-            }
+    ListModel{
+        id: drinkModel
+        ListElement{
+            name: "Blueberry Bliss"
+            icon: "./Images/DrinkB.png"
         }
+        ListElement{
+            name: "Passionfruit Paradise"
+            icon: "./Images/DrinkP.png"
+        }
+        ListElement{
+            name: "Watermelon Wonder"
+            icon: "./Images/DrinkW.png"
+        }
+    }//end drink card list
 
-        //col 2 (LEFT)
+    Component{
+        id: carouselDelegate
+
         Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            id: wrapper
+            width: 320
+            height: 420
 
-            //drink card
-            Rectangle {
-                id: cardA
+            //make only center drink opaque and larger
+            opacity: PathView.isCurrentItem? 1: 0.3
+            //scale: PathView.isCurrentItem ? 1 : 0.8
+
+            //ANIMATE SMOOTHER!!
+            Behavior on opacity {
+                NumberAnimation{duration:250}
+            }//end animation
+
+            Column{
                 anchors.fill: parent
-                radius: 15
-                color: "black"
+                Item {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 320
+                    height: 420
 
-                //only if not ordering OR selected
-                visible: !isOrdering || selectedSide==1
+                    Image { 
+                        id: imgRaw
+                        anchors.fill: parent
+                        source: icon
+                        fillMode: Image.PreserveAspectCrop
+                        visible: false
+                    }//end img
 
-                Image {
-                    id: imgA
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectCrop
-                    source: fullMenu.length > 0? "./Images/" + fullMenu[currentItem]: ""
-                    visible: false
-                }
+                    OpacityMask{
+                        anchors.fill: parent
+                        source: imgRaw
+                        maskSource: Rectangle{
+                            width: 320
+                            height: 420
+                            radius: 15
+                        }
+                    }//end making rounded corners
 
-                //Rounded corners
-                OpacityMask {
-                    anchors.fill : imgA
-                    source: imgA
-                    maskSource: cardA
-                }
+                    //add border 
+                    Rectangle{
+                        anchors.fill: parent
+                        radius:15
+                        color: "transparent"
 
-                //touch visual feedback
-                Rectangle {
-                    anchors.fill: parent
-                    color: "black"
-                    opacity: 0.4
-                    visible: cardAMouse.pressed
-                    z:1
-                }
+                        border.color: wrapper.PathView.isCurrentItem? "#7e7e7e": "transparent"
+                        border.width:4
 
-                //WHAT HAPPENS WHEN CLICKED
-                MouseArea {
-                    id: cardAMouse
-                    z:2
-                    anchors.fill: parent
-                    onClicked: {
-                        if (!isOrdering){
-                            console.log("drink A clicked")
-                            isOrdering=true
-                            selectedSide = 1
-                        }//end if not ordering
-                    }//end mouseclick event
-                }
+                        //fade border out when not selected
+                        Behavior on border.color{
+                            ColorAnimation{duration:250}
+                        }//end animation
+                    }//end border 
+                }//end grouped item 
             }
-
-            //ORDER PANEL for imgB/RHS drink
-            Rectangle {
-                id: orderA
-                anchors.fill: parent
-                radius: 15
-                color: "white"
-                visible: isOrdering && selectedSide==2
-                clip: true
-
-                // Order background img
-                Image {
-                    id: imgAOrder
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectCrop
-                    source: orderMenu.length > 0 ? "./Images/" + orderMenu[(currentItem+1)% orderMenu.length]: ""
-                    visible: false
-                }
-
-                //Rounded corners
-                OpacityMask {
-                    anchors.fill : imgAOrder
-                    source: imgAOrder
-                    maskSource: orderA
-                }
-
-                //ORDER & CANCEL SECTION
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 20
-                    
-                    //SPARKLING ORDER BUTTON for drink B
-                    Rectangle {
-                        id: orderBbtn
-                        width: 180
-                        height: 60
-                        radius: 30
-                        color: "#4CAF50"
-                        z:3
-
-                        //DROPSHADOW!!
-                        layer.enabled:true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: "#1d401e"
-                            shadowVerticalOffset: 6
-                            shadowBlur: 0.8
-                        }
-
-                        Text{
-                            anchors.centerIn: parent
-                            text: "ORDER"
-                            font.pixelSize: 25
-                            font.bold : true
-                            color: "white"
-                        }
-
-                        //touch visual feedback
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: 0.4
-                            visible: orderBMouse.pressed
-                            radius: 30
-                            z:4
-                        }
-
-                        MouseArea{
-                            id: orderBMouse
-                            z: 5
-                            anchors.fill: parent
-                            onClicked: {
-                                console.log("MOTORS MOVING for Drink B")
-                                isOrdering = false
-                                selectedSide = 0
-                                
-                                let idCurrent = (currentItem+1) %fullMenu.length
-                                activeVideo = "./Images/" + videoMenu[idCurrent]
-                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
-
-                                isBusy=true
-                                backend.startPour(idCurrent)
-                            }
-                        }
-                    }//end order sparkling btn 
-
-                    // RED CANCEL Btn for drink B
-                    Rectangle {
-                        width: 180
-                        height: 60
-                        radius: 30
-                        color: "#F44336"
-
-                        //DROPSHADOW!!
-                        layer.enabled:true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: "#611b16"
-                            shadowVerticalOffset: 6
-                            shadowBlur: 0.8
-                        }
-
-                        Text{
-                            anchors.centerIn: parent
-                            text: "CANCEL"
-                            font.pixelSize: 25
-                            font.bold : true
-                            color: "white"
-                        }
-
-                        //touch visual feedback
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: 0.4
-                            visible: cancelBMouse.pressed
-                            radius: 30
-                            z:1
-                        }
-
-                        MouseArea{
-                            id: cancelBMouse
-                            z: 2
-                            anchors.fill: parent
-                            onClicked: {
-                                console.log("CANCEL ORDER for Drink B")
-                                isOrdering = false
-                                selectedSide = 0
-                            }
-                        }
-                    }//end cancel btn
-                }
-            }
-        }//end column 2
-
-        //col3 
-        Item { 
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            //drink card
-            Rectangle {
-                id: cardB
-                anchors.fill: parent
-                radius: 15
-                color: "black"
-
-                //only if not ordering OR selected
-                visible: !isOrdering || selectedSide==2
-
-                Image {
-                    id: imgB
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectCrop
-                    source: fullMenu.length > 0? "./Images/" + fullMenu[(currentItem+1) % fullMenu.length]: ""
-                    visible: false
-                }
-
-                //Rounded corners
-                OpacityMask {
-                    anchors.fill : imgB
-                    source: imgB
-                    maskSource: cardB
-                }
-
-                //touch visual feedback
-                Rectangle {
-                    anchors.fill: parent
-                    color: "black"
-                    opacity: 0.4
-                    visible: cardBMouse.pressed
-                    z:1
-                }
-
-                //WHAT HAPPENS WHEN CLICKED
-                MouseArea {
-                    id: cardBMouse
-                    z: 2
-                    anchors.fill: parent
-                    onClicked: {
-                        if (!isOrdering){
-                            console.log("Drink B clicked")
-                            isOrdering=true
-                            selectedSide = 2
-                        }//end if not ordering
-                    }//end mouseclicked
-                }
-            }
-            
-
-            //ORDER PANEL for imgA/LHS drink
-            Rectangle {
-                id: orderB
-                anchors.fill: parent
-                radius: 15
-                color: "white"
-                visible: isOrdering && selectedSide==1
-                clip: true
-
-                // order bg img
-                Image {
-                    id: imgBOrder
-                    anchors.fill: parent
-                    fillMode: Image.PreserveAspectCrop
-                    source: orderMenu.length > 0 ? "./Images/" + orderMenu[(currentItem)% orderMenu.length]: ""
-                    visible: false
-                }
-
-                //Rounded corners
-                OpacityMask {
-                    anchors.fill : imgBOrder
-                    source: imgBOrder
-                    maskSource: orderB
-                }
-
-                //ORDER & CANCEL SECTION
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 20
-                    
-                    //ORDER BUTTON for drink A
-                    Rectangle {
-                        id: orderAbtn
-                        width: 180
-                        height: 60
-                        radius: 30
-                        color: "#4CAF50"
-                        z:3
-
-                        //DROPSHADOW!!
-                        layer.enabled:true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: "#1d401e"
-                            shadowVerticalOffset: 6
-                            shadowBlur: 0.8
-                        }
-
-                        Text{
-                            anchors.centerIn: parent
-                            text: "ORDER"
-                            font.pixelSize: 25
-                            font.bold : true
-                            color: "white"
-                        }
-
-                        //touch visual feedback
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: 0.4
-                            visible: orderAMouse.pressed
-                            radius: 30
-                            z:4
-                        }
-
-                        MouseArea{
-                            id: orderAMouse
-                            z: 5
-                            anchors.fill: parent
-                            onClicked: {
-                                console.log("MOTORS MOVING for Drink A (Sparkling)")
-                                isOrdering = false
-                                selectedSide = 0
-                                
-                                let idCurrent = (currentItem) %fullMenu.length
-                                activeVideo = "./Images/" + videoMenu[idCurrent]
-                                activeNextOrder ="./Images/" + nextOrderMenu[idCurrent]
-
-                                isBusy=true
-                                backend.startPour(idCurrent)
-                            }
-                        }
-                    }//end order btn for drink A
-
-                    // RED CANCEL Btn for drink A
-                    Rectangle {
-                        width: 180
-                        height: 60
-                        radius: 30
-                        color: "#F44336"
-
-                        //DROPSHADOW!!
-                        layer.enabled:true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: "#611b16"
-                            shadowVerticalOffset: 6
-                            shadowBlur: 0.8
-                        }
-
-                        Text{
-                            anchors.centerIn: parent
-                            text: "CANCEL"
-                            font.pixelSize: 25
-                            font.bold : true
-                            color: "white"
-                        }
-
-                        //touch visual feedback
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: 0.4
-                            visible: cancelAMouse.pressed
-                            radius: 30
-                            z:1
-                        }
-
-                        MouseArea{
-                            id: cancelAMouse
-                            z: 2
-                            anchors.fill: parent
-                            onClicked: {
-                                console.log("CANCEL ORDER for Drink A")
-                                isOrdering = false
-                                selectedSide = 0
-                            }
-                        }
-                    }//end cancel btn
-                }
-            }
-        }
-
-        //col 4/ >
-        Rectangle {
-            opacity: isOrdering ? 0:1
-            Layout.preferredWidth: 80
-            Layout.fillHeight: true
-            color: "transparent"
-
-            Text {
-                anchors.centerIn: parent
-                text: ">"
-                font.pixelSize: 64
-                color: "black"
-            }
-
-            //touch visual feedback
-            Rectangle {
-                anchors.fill: parent
-                color: "black"
-                opacity: 0.4
-                visible: rArrowMouse.pressed
-                z:1
-            }
-
             //WHAT HAPPENS WHEN CLICKED
-            MouseArea {
-                id: rArrowMouse
-                z:2
+            MouseArea{
                 anchors.fill: parent
-                enabled: !isOrdering
                 onClicked: {
-                    console.log("Right arrow clicked")
-                    if (fullMenu.length>0){
-                        currentItem = (currentItem+1)%fullMenu.length
+                    if (wrapper.PathView.isCurrentItem){
+                        console.log("Starting order for"+ wrapper.drinkName)
+                        activeVideo = "./Images/"+ videoMenu[index]
+                        activeNextOrder = "./Images/"+nextOrderMenu[index]
+
+                        isBusy = true
+                        showNextOrder=false
+                        backend.startPour(index)
+                    } else {
+                        //if not centered drink 
+                        swipeCarousel.currentIndex=index
                     }
                 }
             }
-        }
-
+        }        
     }
+
+    PathView{
+        id: swipeCarousel
+        anchors.fill: parent
+
+        //link to menu
+        model: drinkModel
+        delegate: carouselDelegate
+
+        pathItemCount: 3
+        //center active drink
+        preferredHighlightBegin: 0.5
+        preferredHighlightEnd: 0.5
+
+        highlightRangeMode: PathView.StrictlyEnforceRange
+        snapMode: PathView.SnapToItem
+
+        path: Path{
+            startX:0
+            startY: swipeCarousel.height/2
+
+            PathLine{
+                x: swipeCarousel.width
+                y: swipeCarousel.height/2
+            }
+        }
+    }//end path view
+
+    PageIndicator {
+        anchors.bottom: swipeCarousel.bottom
+        anchors.bottomMargin: 30
+        anchors.horizontalCenter: parent.horizontalCenter
+
+        count: swipeCarousel.count
+        currentIndex: swipeCarousel.currentIndex
+
+        delegate: Rectangle{
+            width:12
+            height: 12
+            radius:6
+            color: index === swipeCarousel.currentIndex? "#3c3d3c" : "#acacac"
+
+            Behavior on color {
+                ColorAnimation{duration:250}
+            }//end animation
+        }
+    }//end page circle indicators
+
 
     //WHILE ORDERING: POURING SCREEN VIDEO
     Rectangle{

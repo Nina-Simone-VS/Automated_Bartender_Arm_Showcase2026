@@ -49,19 +49,17 @@ class Backend(QObject):
 
         #recipe names
         self.recipeNames = [
-            "Blueberry_Bliss",
-            "Cranberry_Crush",
-            "Pomegranate_Punch",
-            "Passion_fruit_Paradise",
+            "BlueBerry_Bliss",
+            "Passionfruit_Paradise",
             "Watermelon_Wonder"
         ]
     #end constructor fn
 
     def loadDrinks(self):
-        drinkMenu = ["DrinkB.png","DrinkC.png","DrinkG.png","DrinkP.png","DrinkW.png"]
-        orderMenu= ["OrderB.jpeg","OrderC.jpeg","OrderG.jpeg","OrderP.jpeg","OrderW.jpeg"]
-        videoMenu = ["LoadingVidB.mp4", "LoadingVidC.mp4", "LoadingVidG.mp4", "LoadingVidP.mp4", "LoadingVidW.mp4"]
-        nextOrderMenu = ["NextOrderB.png", "NextOrderC.png", "NextOrderG.png", "NextOrderP.png", "NextOrderW.png"]
+        drinkMenu = ["DrinkB.png","DrinkP.png","DrinkW.png"]
+        orderMenu= ["OrderB.jpeg","OrderP.jpeg","OrderW.jpeg"]
+        videoMenu = ["LoadingVidB.mp4", "LoadingVidP.mp4", "LoadingVidW.mp4"]
+        nextOrderMenu = ["NextOrderB.png", "NextOrderP.png", "NextOrderW.png"]
 
         self.updatedDrinks.emit(drinkMenu, orderMenu, videoMenu, nextOrderMenu)
     #end load python list of drink menu fn
