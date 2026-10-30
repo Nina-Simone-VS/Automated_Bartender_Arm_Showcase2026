@@ -61,13 +61,13 @@ class SimulateGripper:
     #END smooth moving fn
 
     #OPEN GRIPPER'S FINGERS
-    def openGrip(self, openAngle = 0):
+    def openGrip(self, openAngle = -50):
         self.smooving(targetDeg=openAngle)
         print(f"GRIPPER: Opening to {openAngle} degrees")
     #end open grip fn
         
     #CLOSE GRIPPER'S FINGERS
-    def closeGrip(self, closeAngle = 90):
+    def closeGrip(self, closeAngle = 0):
         self.smooving(targetDeg=closeAngle)
         print(f"GRIPPER: Closing to {closeAngle} degrees")
     #end close grip fn
